@@ -234,11 +234,11 @@ export const SKArchiveView: React.FC<SKArchiveViewProps> = ({
                 <button
                   id={`btn-download-docx-${doc.id}`}
                   onClick={() => exportSKToDocx(doc, schoolProfile)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
-                  title="Download File Word .docx"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  title="Unduh File Word (.docx) siap edit di Microsoft Word"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>.docx</span>
+                  <span>Unduh .docx</span>
                 </button>
 
                 <button

@@ -38,9 +38,8 @@ function getGemini(): GoogleGenAI | null {
 
 // Officially supported Gemini models in prioritized fallback order
 const CANDIDATE_TEXT_MODELS = [
-  "gemini-3.8-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-flash-latest",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
 ];
 
 async function generateContentWithFallback(
@@ -401,28 +400,33 @@ Format output WAJIB JSON valid sesuai schema berikut:
   ]
 }`;
 
+    const effectiveJudul =
+      cleanServerSKJudul(judulSK || userPrompt || jenisSK, tahunAjaran) ||
+      "PEMBAGIAN TUGAS GURU DALAM KEGIATAN PROSES BELAJAR MENGAJAR";
+
     const promptText = `SUSUN DRAF SURAT KEPUTUSAN KEPALA SEKOLAH SD:
-Jenis SK: ${jenisSK || "Umum"}
-Judul yang diinginkan: ${judulSK || "Sesuai standar"}
-Tahun Ajaran: ${tahunAjaran || "2025/2026"}
-Nama Sekolah: ${sekolah?.nama || "SD Negeri"}
-Alamat: ${sekolah?.alamat || ""}, ${sekolah?.desa || ""}, Kec. ${sekolah?.kecamatan || ""}, Kab. ${sekolah?.kabupaten || ""}, Prov. ${sekolah?.provinsi || ""}
-Nama Kepala Sekolah: ${kepalaSekolah?.nama || ""}
-NIP Kepala Sekolah: ${kepalaSekolah?.nip || ""}
-Pangkat/Golongan Kepala Sekolah: ${kepalaSekolah?.pangkat || ""} / ${kepalaSekolah?.golongan || ""}
-Data Rapat / Kebutuhan Khusus: ${JSON.stringify(dataKhusus || {})}
-Prompt/Instruksi Tambahan Pengguna: ${userPrompt || "Buat SK formal lengkap dengan lampiran"}
-Daftar Guru/PTK yang terdaftar di sekolah (${employees?.length || 0} orang):
+JUDUL SK YANG HARUS DIBUAT (MUTLAK HARUS SESUAI DENGAN TOPIK INI):
+"${effectiveJudul}"
+
+PERINGATAN PENTING & MUTLAK:
+1. Anda WAJIB menyusun dokumen Surat Keputusan (SK) khusus untuk topik: "${effectiveJudul}".
+2. JANGAN PERNAH membuat SK tentang hal lain (seperti "Kebutuhan Khusus" atau topik di luar judul).
+3. Seluruh konsiderans (Menimbang a, b, c), dasar hukum (Mengingat), Diktum Putusan (KESATU, KEDUA, KETIGA dst), dan tabel lampiran WAJIB diselaraskan secara spesifik dengan topik "${effectiveJudul}".
+4. Sekolah: ${sekolah?.nama || "SD Negeri 3 Loloan Timur"}, Kab: ${sekolah?.kabupaten || "Jembrana"}, Kec: ${sekolah?.kecamatan || "Negara"}.
+5. Kepala Sekolah: ${kepalaSekolah?.nama || "Susilo Fitri Yatmoko, M.Pd"}, NIP: ${kepalaSekolah?.nip || "19880521 201101 1 010"}, Pangkat/Golongan: ${kepalaSekolah?.pangkat || "Pembina"} / ${kepalaSekolah?.golongan || "IV/a"}.
+6. Tahun Ajaran: ${tahunAjaran || "2025/2026"}.
+7. Tanggal Rapat Dewan Guru: ${dataKhusus?.tanggalRapat || "Sesuai kalender pendidikan"}.
+8. Daftar Guru/PTK yang terdaftar di sekolah (${employees?.length || 0} orang):
 ${(employees || []).slice(0, 15).map((e: any, i: number) => `${i + 1}. ${e.nama} (${e.nip || "-"}, ${e.pangkat || ""}/${e.golongan || ""}, ${e.jabatan || ""}, ${e.mapel || ""}, Kelas: ${e.kelas || "-"})`).join("\n")}
 
-Keluarkan HANYA JSON murni yang valid tanpa awalan \`\`\`json atau karakter markdown lainnya bila memungkinkan.`;
+Keluarkan HANYA JSON murni yang valid sesuai skema yang diminta.`;
 
     if (!ai) {
       // Fallback response with realistic, high-fidelity Indonesian school SK structure
       return res.json({
         success: true,
         source: "local-generator",
-        data: generateLocalSKFallback(jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees, userPrompt),
+        data: generateLocalSKFallback(jenisSK, effectiveJudul, tahunAjaran, sekolah, dataKhusus, employees, userPrompt),
       });
     }
 
@@ -443,12 +447,12 @@ Keluarkan HANYA JSON murni yang valid tanpa awalan \`\`\`json atau karakter mark
       usedModel = aiResult.model;
     } catch (aiErr: any) {
       console.warn("AI generation fallback to standard school SK template:", aiErr?.message);
-      const localData = generateLocalSKFallback(jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees, userPrompt);
+      const localData = generateLocalSKFallback(jenisSK, effectiveJudul, tahunAjaran, sekolah, dataKhusus, employees, userPrompt);
       return res.json({
         success: true,
         source: "local-generator-fallback",
         data: localData,
-        warning: "Server AI sedang dalam antrean tinggi. Draf SK telah disusun otomatis menggunakan format standar tata naskah dinas pendidikan.",
+        warning: "Draf SK telah disusun otomatis menggunakan format standar tata naskah dinas pendidikan.",
       });
     }
 
@@ -461,8 +465,9 @@ Keluarkan HANYA JSON murni yang valid tanpa awalan \`\`\`json atau karakter mark
       parsedData = JSON.parse(clean);
     }
 
-    if (parsedData && parsedData.judul) {
-      parsedData.judul = cleanServerSKJudul(parsedData.judul, tahunAjaran);
+    if (parsedData) {
+      // Pastikan judul selalu menghargai input kepala sekolah
+      parsedData.judul = effectiveJudul;
     }
 
     res.json({
@@ -1430,12 +1435,83 @@ function generateLocalSKFallback(
     };
   }
 
+  const cleanJudul =
+    customJudul ||
+    cleanServerSKJudul(judul) ||
+    "PEMBAGIAN TUGAS GURU DALAM KEGIATAN PROSES BELAJAR MENGAJAR ATAU BIMBINGAN DAN TUGAS TENAGA KEPENDIDIKAN";
+  const isPembagianTugas =
+    cleanJudul.toLowerCase().includes("pembagian tugas") ||
+    cleanJudul.toLowerCase().includes("kbm") ||
+    cleanJudul.toLowerCase().includes("mengajar");
+
+  // Jika judul khusus di luar pembagian tugas baku, susun SK dinas spesifik judul tersebut
+  if (!isPembagianTugas) {
+    return {
+      judul: cleanJudul,
+      menimbang: [
+        `Bahwa dalam rangka memperlancar pelaksanaan ${cleanJudul} di ${namaSekolah} Tahun Ajaran ${tahunAjaran}, dipandang perlu menetapkan pembagian tugas dan susunan tim kerja.`,
+        `Bahwa mereka yang namanya tercantum dalam lampiran keputusan ini dianggap cakap, mampu, dan memenuhi syarat untuk melaksanakan tugas yang diamanahkan.`,
+        `Bahwa berdasarkan pertimbangan sebagaimana dimaksud, perlu menetapkan Keputusan Kepala Sekolah tentang ${cleanJudul}.`,
+      ],
+      mengingat: [
+        "Undang-undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;",
+        "Peraturan Pemerintah Nomor 4 Tahun 2022 tentang Perubahan atas PP Nomor 57 Tahun 2021 tentang Standar Nasional Pendidikan;",
+        "Peraturan Menteri Pendidikan Dasar dan Menengah Republik Indonesia Nomor 12 Tahun 2025 tentang Standar Isi;",
+        "Peraturan Menteri Pendidikan Dasar dan Menengah Republik Indonesia Nomor 13 Tahun 2025 tentang Kurikulum pada Pendidikan Dasar dan Menengah;",
+        "Peraturan Menteri Pendidikan, Kebudayaan, Riset, dan Teknologi Nomor 47 Tahun 2023 tentang Standar Pengelolaan Pendidikan;",
+        `Keputusan Kepala Dinas Pendidikan tentang Kalender Pendidikan bagi Satuan Pendidikan Tahun Ajaran ${tahunAjaran};`,
+      ],
+      memperhatikan: `Hasil Rapat Dewan Guru dan Tenaga Kependidikan ${namaSekolah} tanggal ${tanggalRapat} tentang ${cleanJudul}.`,
+      diktum: [
+        {
+          poin: "KESATU",
+          isi: `Membentuk dan menetapkan susunan pelaksana ${cleanJudul} di lingkungan ${namaSekolah} sebagaimana tercantum dalam lampiran keputusan ini.`,
+        },
+        {
+          poin: "KEDUA",
+          isi: "Masing-masing personil yang ditunjuk wajib melaksanakan tugas dengan penuh tanggung jawab serta berkoordinasi secara berkala kepada Kepala Sekolah.",
+        },
+        {
+          poin: "KETIGA",
+          isi: "Segala biaya yang timbul akibat pelaksanaan keputusan ini dibebankan pada anggaran sekolah yang relevan dan sah.",
+        },
+        {
+          poin: "KEEMPAT",
+          isi: "Keputusan ini mulai berlaku sejak tanggal ditetapkan, dan apabila di kemudian hari terdapat kekeliruan akan diperbaiki sebagaimana mestinya.",
+        },
+      ],
+      tembusan: [
+        `Kepala Dinas Dikpora Kabupaten ${namaKab}`,
+        `Korwil SPF Kecamatan ${namaKec}`,
+        "Pengawas Sekolah Dasar Pembina",
+        "Ketua Komite Sekolah",
+        "Yang bersangkutan untuk dilaksanakan",
+        "Arsip",
+      ],
+      lampiranList: [
+        {
+          nomorLampiran: "Lampiran I",
+          judul: `Susunan Pelaksana ${cleanJudul}`,
+          jenisLampiran: "susunan_tim",
+          headers: ["No", "Nama / NIP", "Pangkat / Golongan", "Jabatan Kedinasan", "Jabatan dalam Tim", "Uraian Tugas"],
+          rows: [
+            ["1", `${sekolah?.kepalaSekolah?.nama || "Susilo Fitri Yatmoko, M.Pd"}\nNIP. ${sekolah?.kepalaSekolah?.nip || "19880521 201101 1 010"}`, "Pembina / IV/a", "Kepala Sekolah", "Penanggung Jawab", `Bertanggung jawab mutlak atas kelancaran dan pengawasan ${cleanJudul}`],
+            ["2", employees[0] ? `${employees[0].nama}\nNIP. ${employees[0].nip || "-"}` : "Ni Ketut Ayu Negariati, S.Pd.\nNIPPPK. 198305082024212016", "Ahli Pertama / IX", "Guru Kelas I", "Ketua Tim", "Mengkoordinasikan seluruh agenda, persiapan, dan teknis operasional"],
+            ["3", employees[1] ? `${employees[1].nama}\nNIP. ${employees[1].nip || "-"}` : "Ni Putu Nuning Riasmini, SE.\nNIPPPK. 199312152024212042", "Ahli Pertama / IX", "Guru Kelas II", "Sekretaris", "Menyusun administrasi, notula rapat, dokumentasi, dan pelaporan"],
+            ["4", employees[3] ? `${employees[3].nama}\nNIP. ${employees[3].nip || "-"}` : "Made Ririn Praditha Yanti, S.Pd\nNIPPPK. 199803232023211003", "Ahli Pertama / IX", "Guru Kelas IV", "Bendahara / Koordinator", "Mengelola kebutuhan logistik, perlengkapan, dan pertanggungjawaban kegiatan"],
+            ["5", employees[2] ? `${employees[2].nama}\nNIP. ${employees[2].nip || "-"}` : "I Putu Agus Pramana Putra, S.Pd\nNIPPPK. 199711062022211001", "Ahli Pertama / IX", "Guru Kelas III", "Anggota Pelaksana", "Membantu kelancaran pelaksanaan di lapangan dan koordinasi siswa"],
+            ["6", employees[4] ? `${employees[4].nama}\nNIP. ${employees[4].nip || "-"}` : "I Ketut Ariawan, S.Pd.H\nNIPPPK. 198207192024211009", "Ahli Pertama / IX", "Guru Pend. Agama Hindu", "Anggota Pelaksana", "Mendampingi pelaksanaan tugas dan evaluasi kegiatan"],
+          ],
+          footerNote: "Semua anggota tim bertanggung jawab langsung kepada Kepala Sekolah.",
+        },
+      ],
+      aiNotes: [`Draf SK disusun spesifik untuk ${cleanJudul} dengan personil dari daftar guru SD.`],
+    };
+  }
+
   // 9. DEFAULT: SK PEMBAGIAN TUGAS GURU KBM & TENAGA KEPENDIDIKAN (KOMPREHENSIF 4 LAMPIRAN)
   return {
-    judul:
-      customJudul ||
-      cleanServerSKJudul(judul) ||
-      "PEMBAGIAN TUGAS GURU DALAM KEGIATAN PROSES BELAJAR MENGAJAR ATAU BIMBINGAN DAN TUGAS TENAGA KEPENDIDIKAN",
+    judul: cleanJudul,
     menimbang: [
       `Bahwa dalam rangka meningkatkan penyelenggaraan proses belajar mengajar dan mutu layanan pendidikan di ${namaSekolah} Tahun Ajaran ${tahunAjaran}, maka perlu Pembagian Tugas Guru dalam kegiatan proses belajar mengajar atau bimbingan dan tugas tenaga kependidikan.`,
       `Bahwa untuk kelancaran pelaksanaan tugas-tugas guru dan tenaga kependidikan tersebut, dipandang perlu menetapkan pembagian tugas dalam suatu Surat Keputusan Kepala Sekolah.`,

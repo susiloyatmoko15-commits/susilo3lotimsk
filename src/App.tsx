@@ -16,15 +16,11 @@ import {
   defaultKopSuratVector,
 } from "./data/defaultKopImage";
 import { Navbar } from "./components/Navbar";
-import { DashboardView } from "./components/DashboardView";
+import { QuickSKGeneratorView } from "./components/QuickSKGeneratorView";
 import { SchoolProfileView } from "./components/SchoolProfileView";
 import { EmployeeManagerView } from "./components/EmployeeManagerView";
-import { SKBuilderWizard } from "./components/SKBuilderWizard";
 import { SKPreviewView } from "./components/SKPreviewView";
 import { SKArchiveView } from "./components/SKArchiveView";
-import { TemplatesCatalogView } from "./components/TemplatesCatalogView";
-import { AIAssistantView } from "./components/AIAssistantView";
-import { AdministrasiView } from "./components/AdministrasiView";
 import { SettingsView } from "./components/SettingsView";
 import { generateNextSKNumber } from "./utils/numberGenerator";
 import { cleanSKJudul } from "./utils/skFormatter";
@@ -195,12 +191,11 @@ export default function App() {
     return initialNumberingConfig;
   });
 
-  // Navigation & Sub-views
-  const [activeTab, setActiveTab] = useState<string>("dashboard");
+  // Navigation & Sub-views: Terfokus 100% pada Generator Kilat Judul -> Docx
+  const [activeTab, setActiveTab] = useState<string>("generator");
   const [archiveFilterStatus, setArchiveFilterStatus] = useState<string>("ALL");
-  const [isBuildingSK, setIsBuildingSK] = useState<boolean>(false);
   const [previewingDoc, setPreviewingDoc] = useState<SKDocument | null>(null);
-  const [editingDoc, setEditingDoc] = useState<SKDocument | null>(null);
+  const [generatorDoc, setGeneratorDoc] = useState<SKDocument | null>(null);
 
   // Sync to LocalStorage & IndexedDB safely
   useEffect(() => {
@@ -230,21 +225,19 @@ export default function App() {
 
   // Handlers
   const handleOpenNewSK = () => {
-    setEditingDoc(null);
     setPreviewingDoc(null);
-    setIsBuildingSK(true);
+    setGeneratorDoc(null);
+    setActiveTab("generator");
   };
 
   const handlePreviewSK = (doc: SKDocument) => {
-    setEditingDoc(null);
     setPreviewingDoc(doc);
-    setIsBuildingSK(false);
   };
 
   const handleEditSK = (doc: SKDocument) => {
-    setEditingDoc(doc);
     setPreviewingDoc(null);
-    setIsBuildingSK(true);
+    setGeneratorDoc(doc);
+    setActiveTab("generator");
   };
 
   const handleDuplicateSK = (doc: SKDocument) => {
@@ -299,14 +292,6 @@ export default function App() {
         lastNumber: prev.lastNumber + 1,
       }));
     }
-    setIsBuildingSK(false);
-    setPreviewingDoc(cleanDoc);
-  };
-
-  const handleSelectTemplate = (categoryName: string) => {
-    setIsBuildingSK(true);
-    setPreviewingDoc(null);
-    // Open builder with that category
   };
 
   const handleRestoreData = async (restored: {
@@ -329,25 +314,12 @@ export default function App() {
     setNumberingConfig(restored.numberingConfig);
   };
 
-  const handleNavigateTab = (tab: string, filterStatus?: string) => {
-    setIsBuildingSK(false);
-    setPreviewingDoc(null);
-    setEditingDoc(null);
-    if (filterStatus) {
-      setArchiveFilterStatus(filterStatus);
-    } else {
-      setArchiveFilterStatus("ALL");
-    }
-    setActiveTab(tab);
-  };
-
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={(tab) => {
-          setIsBuildingSK(false);
           setPreviewingDoc(null);
           setActiveTab(tab);
         }}
@@ -358,29 +330,8 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8">
-        {/* If user is building an SK */}
-        {isBuildingSK ? (
-          <SKBuilderWizard
-            initialDoc={editingDoc}
-            profile={schoolProfile}
-            employees={employees}
-            numberingConfig={numberingConfig}
-            existingDocuments={documents}
-            onSaveSK={(doc) => {
-              handleSaveDraftToArchive(doc);
-              setEditingDoc(null);
-            }}
-            onPreviewSK={(doc) => {
-              handlePreviewSK(doc);
-              setEditingDoc(null);
-            }}
-            onCancel={() => {
-              setIsBuildingSK(false);
-              setEditingDoc(null);
-            }}
-          />
-        ) : previewingDoc ? (
-          /* If user is previewing an SK */
+        {previewingDoc ? (
+          /* Pratinjau SK Format A4 Resmi dengan Download Word */
           <SKPreviewView
             document={previewingDoc}
             schoolProfile={schoolProfile}
@@ -390,17 +341,56 @@ export default function App() {
             onSaveToArchive={handleSaveDraftToArchive}
           />
         ) : (
-          /* Active Tab Views */
+          /* Active Views */
           <>
-            {activeTab === "dashboard" && (
-              <DashboardView
-                documents={documents}
+            {activeTab === "generator" && (
+              <QuickSKGeneratorView
                 schoolProfile={schoolProfile}
                 employees={employees}
-                onOpenNewSK={handleOpenNewSK}
-                onPreviewSK={handlePreviewSK}
-                onOpenAssistant={() => setActiveTab("assistant")}
-                onNavigateTab={handleNavigateTab}
+                numberingConfig={numberingConfig}
+                initialDoc={generatorDoc}
+                onSaveToArchive={handleSaveDraftToArchive}
+                onNavigateToArchive={() => {
+                  setPreviewingDoc(null);
+                  setActiveTab("arsip");
+                }}
+                onOpenEmployeeManager={() => {
+                  setPreviewingDoc(null);
+                  setActiveTab("ptk");
+                }}
+                onOpenSchoolProfile={() => {
+                  setPreviewingDoc(null);
+                  setActiveTab("sekolah");
+                }}
+              />
+            )}
+
+            {activeTab === "arsip" && (
+              <div className="space-y-6">
+                <SKArchiveView
+                  documents={documents}
+                  schoolProfile={schoolProfile}
+                  initialFilterStatus={archiveFilterStatus}
+                  onPreviewSK={handlePreviewSK}
+                  onEditSK={handleEditSK}
+                  onDuplicateSK={handleDuplicateSK}
+                  onDeleteSK={handleDeleteSK}
+                  onOpenNewSK={handleOpenNewSK}
+                />
+              </div>
+            )}
+
+            {activeTab === "ptk" && (
+              <EmployeeManagerView
+                employees={employees}
+                onUpdateEmployees={(updated) => {
+                  setEmployees(updated);
+                  safeSetItem("sd_employees", JSON.stringify(updated));
+                  syncMasterDefaultsToServer({
+                    employees: updated,
+                  }).catch(() => {});
+                }}
+                schoolName={schoolProfile.nama}
               />
             )}
 
@@ -420,84 +410,6 @@ export default function App() {
                 }}
               />
             )}
-
-            {activeTab === "ptk" && (
-              <EmployeeManagerView
-                employees={employees}
-                onUpdateEmployees={(updated) => {
-                  setEmployees(updated);
-                  safeSetItem("sd_employees", JSON.stringify(updated));
-                  syncMasterDefaultsToServer({
-                    employees: updated,
-                  }).catch(() => {});
-                }}
-                schoolName={schoolProfile.nama}
-              />
-            )}
-
-            {activeTab === "sk" && (
-              <div className="space-y-6">
-                <SKArchiveView
-                  documents={documents}
-                  schoolProfile={schoolProfile}
-                  initialFilterStatus={archiveFilterStatus}
-                  onPreviewSK={handlePreviewSK}
-                  onEditSK={handleEditSK}
-                  onDuplicateSK={handleDuplicateSK}
-                  onDeleteSK={handleDeleteSK}
-                  onOpenNewSK={handleOpenNewSK}
-                />
-              </div>
-            )}
-
-            {activeTab === "administrasi" && (
-              <AdministrasiView
-                documents={documents}
-                employees={employees}
-                schoolProfile={schoolProfile}
-                onPreviewSK={handlePreviewSK}
-              />
-            )}
-
-            {activeTab === "arsip" && (
-              <SKArchiveView
-                documents={documents}
-                schoolProfile={schoolProfile}
-                initialFilterStatus={archiveFilterStatus}
-                onPreviewSK={handlePreviewSK}
-                onEditSK={handleEditSK}
-                onDuplicateSK={handleDuplicateSK}
-                onDeleteSK={handleDeleteSK}
-                onOpenNewSK={handleOpenNewSK}
-              />
-            )}
-
-            {activeTab === "template" && (
-              <TemplatesCatalogView onSelectTemplate={handleSelectTemplate} />
-            )}
-
-            {activeTab === "assistant" && (
-              <AIAssistantView
-                schoolProfile={schoolProfile}
-                employees={employees}
-                onStartSKFromAssistant={(skType) => {
-                  handleOpenNewSK();
-                }}
-              />
-            )}
-
-            {activeTab === "pengaturan" && (
-              <SettingsView
-                numberingConfig={numberingConfig}
-                onSaveNumbering={(c) => setNumberingConfig(c)}
-                allData={{
-                  schoolProfile,
-                  employees,
-                  documents,
-                }}
-                onRestoreData={handleRestoreData}
-              />
-            )}
           </>
         )}
       </main>
@@ -506,7 +418,7 @@ export default function App() {
       <footer className="no-print print:hidden bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
         <p>
           Sistem Dokumen Surat Keputusan (SK) Kepala Sekolah Dasar • {schoolProfile.nama} •
-          Didukung AI Gemini
+          Didukung Ekspor Microsoft Word (.docx)
         </p>
       </footer>
     </div>

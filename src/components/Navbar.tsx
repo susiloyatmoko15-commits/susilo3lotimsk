@@ -27,14 +27,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   headmasterName,
 }) => {
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: Layers },
-    { id: "sekolah", label: "Data Sekolah", icon: Building2 },
-    { id: "ptk", label: "Data Guru/PTK", icon: Users },
-    { id: "sk", label: "SK Sekolah", icon: FileText },
-    { id: "arsip", label: "Arsip Dokumen", icon: FolderArchive },
-    { id: "template", label: "Template SK", icon: FileText },
-    { id: "assistant", label: "AI Assistant", icon: Bot, isSpecial: true },
-    { id: "pengaturan", label: "Pengaturan", icon: Settings },
+    { id: "generator", label: "⚡ Buat Draf SK (Ketik Judul)", icon: Sparkles, isSpecial: true },
+    { id: "arsip", label: "📂 Daftar Draf SK", icon: FolderArchive },
+    { id: "ptk", label: "👥 Data Guru/PTK", icon: Users },
+    { id: "sekolah", label: "🏫 Profil & KOP Sekolah", icon: Building2 },
   ];
 
   return (
