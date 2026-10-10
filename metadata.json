@@ -1,0 +1,8 @@
+{
+  "name": "Remix Aplikasi SK Kepala Sekolah SD",
+  "description": "Aplikasi AI untuk Kepala Sekolah SD dalam menyusun, mengelola, memvalidasi, dan mengekspor dokumen Surat Keputusan (SK) resmi ke format Word (.docx).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

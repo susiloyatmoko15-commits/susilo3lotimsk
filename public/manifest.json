@@ -1,0 +1,17 @@
+{
+  "name": "Remix Aplikasi SK Kepala Sekolah SD",
+  "short_name": "SK Sekolah SD",
+  "description": "Aplikasi untuk Kepala Sekolah SD dalam menyusun, mengelola, memvalidasi, dan mengekspor dokumen Surat Keputusan (SK) resmi ke format Word (.docx).",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

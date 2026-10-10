@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Utility classes for mobile touch scrolling */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Print Stylesheet for A4 Official Document Output */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm 1.5cm 1.5cm 2cm;
+  }
+
+  /* Sembunyikan elemen antarmuka navigasi dan kontrol saat mencetak dokumen */
+  .no-print,
+  header,
+  nav,
+  footer,
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  #root, #root > div, #root > div > main {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    max-width: 100% !important;
+  }
+
+  /* A4 Document Container saat dicetak */
+  .a4-document-preview,
+  #root > div > main > div > div.bg-white {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+  }
+
+  /* Cegah pemotongan teks penting / tanda tangan di tengah baris */
+  table, tr, td, th {
+    page-break-inside: avoid !important;
+  }
+
+  .print\:break-before-page {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+}
+
