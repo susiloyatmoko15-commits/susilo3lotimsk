@@ -132,13 +132,19 @@ export default function App() {
     const saved = safeGetItem("sd_employees");
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        const hasOldDummy =
+          Array.isArray(parsed) &&
+          (parsed.some((e: any) => e.nama?.includes("Sisilia Karvila")) || parsed.length < 11);
+        if (!hasOldDummy && Array.isArray(parsed) && parsed.length >= 11) {
+          return parsed;
+        }
       } catch (e) {
         console.error(e);
       }
     }
     const master = getSavedMasterDefault();
-    if (master?.employees) return master.employees;
+    if (master?.employees && master.employees.length >= 11) return master.employees;
     return initialEmployees;
   });
 
@@ -147,10 +153,17 @@ export default function App() {
     if (saved) {
       try {
         const parsed: SKDocument[] = JSON.parse(saved);
-        return parsed.map((d) => ({
-          ...d,
-          judul: cleanSKJudul(d.judul, d.tahunAjaran),
-        }));
+        const hasOldDummy =
+          Array.isArray(parsed) &&
+          parsed.some((d) =>
+            JSON.stringify(d.lampiranList || []).includes("Sisilia Karvila")
+          );
+        if (!hasOldDummy && Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((d) => ({
+            ...d,
+            judul: cleanSKJudul(d.judul, d.tahunAjaran),
+          }));
+        }
       } catch (e) {
         console.error(e);
       }
