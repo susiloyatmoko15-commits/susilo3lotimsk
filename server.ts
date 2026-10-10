@@ -422,7 +422,7 @@ Keluarkan HANYA JSON murni yang valid tanpa awalan \`\`\`json atau karakter mark
       return res.json({
         success: true,
         source: "local-generator",
-        data: generateLocalSKFallback(jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees),
+        data: generateLocalSKFallback(jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees, userPrompt),
       });
     }
 
@@ -443,7 +443,7 @@ Keluarkan HANYA JSON murni yang valid tanpa awalan \`\`\`json atau karakter mark
       usedModel = aiResult.model;
     } catch (aiErr: any) {
       console.warn("AI generation fallback to standard school SK template:", aiErr?.message);
-      const localData = generateLocalSKFallback(jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees);
+      const localData = generateLocalSKFallback(jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees, userPrompt);
       return res.json({
         success: true,
         source: "local-generator-fallback",
@@ -473,8 +473,8 @@ Keluarkan HANYA JSON murni yang valid tanpa awalan \`\`\`json atau karakter mark
   } catch (error: any) {
     console.error("Error in /api/gemini/generate-sk:", error);
     // Never return a blocking 500 error to the client; always provide a valid draft
-    const { jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees } = req.body;
-    const fallbackData = generateLocalSKFallback(jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees);
+    const { jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees, userPrompt } = req.body;
+    const fallbackData = generateLocalSKFallback(jenisSK, judulSK, tahunAjaran, sekolah, dataKhusus, employees, userPrompt);
     res.json({
       success: true,
       source: "local-generator-safe-recovery",
@@ -488,6 +488,10 @@ Keluarkan HANYA JSON murni yang valid tanpa awalan \`\`\`json atau karakter mark
 function cleanServerSKJudul(rawJudul?: string, tahunAjaran?: string): string {
   if (!rawJudul) return "";
   let clean = rawJudul.trim();
+  // Filter out any unwanted placeholder title
+  if (clean.includes("LAYANAN DAN KEBUTUHAN KHUSUS")) {
+    return "";
+  }
   clean = clean.replace(/^(?:SURAT\s+)?KEPUTUSAN\s+KEPALA\s+[^\n]+?TENTANG\s+/i, "");
   clean = clean.replace(/^(?:SURAT\s+)?KEPUTUSAN\s+TENTANG\s+/i, "");
   clean = clean.replace(/^SK\s+TENTANG\s+/i, "");
@@ -1003,14 +1007,30 @@ function generateLocalSKFallback(
   tahun: string,
   sekolah: any,
   dataKhusus: any,
-  employees: any[] = []
+  employees: any[] = [],
+  userPrompt: string = ""
 ) {
   const namaSekolah = sekolah?.nama || "SD Negeri 3 Loloan Timur";
   const namaKab = sekolah?.kabupaten || "Jembrana";
   const namaKec = sekolah?.kecamatan || "Negara";
   const tahunAjaran = tahun || "2025/2026";
   const tanggalRapat = dataKhusus?.tanggalRapat || "18 Juni 2025";
-  const lowerJenis = (jenis || "").toLowerCase() + " " + (judul || "").toLowerCase();
+  const lowerJenis =
+    (jenis || "").toLowerCase() + " " + (judul || "").toLowerCase() + " " + (userPrompt || "").toLowerCase();
+
+  // Smart fallback title from userPrompt if custom mode was selected
+  let customJudul = cleanServerSKJudul(judul);
+  if (!customJudul && userPrompt && userPrompt.trim().length > 3) {
+    const cleanPrompt = userPrompt
+      .trim()
+      .replace(/^(buatkan|buat|tolong buatkan|saya butuh|saya ingin membuat|sk|surat keputusan)\s+/i, "")
+      .toUpperCase();
+    if (cleanPrompt.startsWith("PENETAPAN") || cleanPrompt.startsWith("PEMBENTUKAN") || cleanPrompt.startsWith("PENGANGKATAN") || cleanPrompt.startsWith("PEMBAGIAN")) {
+      customJudul = cleanPrompt;
+    } else {
+      customJudul = `PENETAPAN ${cleanPrompt}`;
+    }
+  }
 
   // 1. SK TIM BOS / BOSP
   if (lowerJenis.includes("bos") || lowerJenis.includes("bosp")) {
@@ -1413,6 +1433,7 @@ function generateLocalSKFallback(
   // 9. DEFAULT: SK PEMBAGIAN TUGAS GURU KBM & TENAGA KEPENDIDIKAN (KOMPREHENSIF 4 LAMPIRAN)
   return {
     judul:
+      customJudul ||
       cleanServerSKJudul(judul) ||
       "PEMBAGIAN TUGAS GURU DALAM KEGIATAN PROSES BELAJAR MENGAJAR ATAU BIMBINGAN DAN TUGAS TENAGA KEPENDIDIKAN",
     menimbang: [

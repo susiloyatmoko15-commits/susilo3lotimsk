@@ -59,9 +59,15 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
   const [selectedSKType, setSelectedSKType] = useState<string>(
     initialDoc?.jenisSK || skCategories[0].nama
   );
+  const initialCategoryObj = skCategories.find(
+    (c) => c.nama === (initialDoc?.jenisSK || skCategories[0].nama)
+  );
+  const [judulSK, setJudulSK] = useState<string>(
+    initialDoc?.judul || initialCategoryObj?.defaultJudul || "PEMBAGIAN TUGAS GURU DALAM KEGIATAN PROSES BELAJAR MENGAJAR ATAU BIMBINGAN DAN TUGAS TENAGA KEPENDIDIKAN"
+  );
   const [customPrompt, setCustomPrompt] = useState<string>("");
   const [isCustomMode, setIsCustomMode] = useState<boolean>(
-    initialDoc?.jenisSK === "SK Lainnya (Custom AI)"
+    initialDoc?.jenisSK?.includes("Kustom") || initialDoc?.jenisSK?.includes("Custom") || false
   );
 
   // Step 3: Specific Data - Muat dari data bawaan yang sudah diisikan pengguna
@@ -97,7 +103,41 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
   // Step 1: Select Type
   const handleSelectType = (typeName: string) => {
     setSelectedSKType(typeName);
-    setIsCustomMode(typeName === "SK Lainnya (Custom AI)");
+    const cat = skCategories.find((c) => c.nama === typeName);
+    if (cat) {
+      setJudulSK(cat.defaultJudul);
+    }
+    setIsCustomMode(typeName.includes("Custom") || typeName.includes("Kustom") || typeName.includes("Lainnya"));
+  };
+
+  const handleCustomPromptChange = (text: string) => {
+    setCustomPrompt(text);
+    if (text.trim()) {
+      setIsCustomMode(true);
+      const customCat = skCategories.find(
+        (c) => c.kategori === "Kustom" || c.nama.includes("Kustom") || c.nama.includes("Custom")
+      );
+      if (customCat) {
+        setSelectedSKType(customCat.nama);
+      }
+      const clean = text
+        .trim()
+        .replace(/^(buatkan|buat|tolong buatkan|saya butuh|saya ingin membuat|sk|surat keputusan)\s+/i, "")
+        .trim();
+      if (clean.length > 3) {
+        const uppercase = clean.toUpperCase();
+        if (
+          uppercase.startsWith("PENETAPAN") ||
+          uppercase.startsWith("PEMBENTUKAN") ||
+          uppercase.startsWith("PENGANGKATAN") ||
+          uppercase.startsWith("PEMBAGIAN")
+        ) {
+          setJudulSK(uppercase);
+        } else {
+          setJudulSK(`PENETAPAN ${uppercase}`);
+        }
+      }
+    }
   };
 
   // Helper format Memperhatikan secara rapi dan menjaga data bawaan
@@ -149,7 +189,9 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
     );
 
     const categoryObj = skCategories.find((c) => c.nama === selectedSKType);
-    const judul = categoryObj ? categoryObj.defaultJudul : selectedSKType.toUpperCase();
+    const effectiveJudul =
+      (judulSK || "").trim() ||
+      (categoryObj ? categoryObj.defaultJudul : selectedSKType.toUpperCase());
 
     try {
       const response = await fetch("/api/gemini/generate-sk", {
@@ -157,7 +199,7 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jenisSK: selectedSKType,
-          judulSK: judul,
+          judulSK: effectiveJudul,
           tahunAjaran,
           sekolah: profile,
           kepalaSekolah: profile.kepalaSekolah,
@@ -169,7 +211,7 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
             keteranganTambahan,
           },
           employees: relevantEmployees,
-          userPrompt: isCustomMode ? customPrompt : "",
+          userPrompt: isCustomMode ? (customPrompt || effectiveJudul) : "",
         }),
       });
 
@@ -179,7 +221,7 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
         const newDoc: SKDocument = {
           id: `sk-${Date.now()}`,
           nomor: nomorSK,
-          judul: cleanSKJudul(data.judul || judul, tahunAjaran),
+          judul: cleanSKJudul(data.judul || effectiveJudul, tahunAjaran),
           jenisSK: selectedSKType,
           tahunAjaran,
           tanggalTetap,
@@ -247,7 +289,7 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
       const clientFallbackDoc: SKDocument = {
         id: `sk-${Date.now()}`,
         nomor: nomorSK || `421.2/08/SDN3LT/${tahunAjaran}`,
-        judul: cleanSKJudul(judul, tahunAjaran) || "PEMBAGIAN TUGAS GURU DALAM PROSES BELAJAR MENGAJAR DAN TUGAS TERTENTU",
+        judul: cleanSKJudul(effectiveJudul, tahunAjaran) || "PEMBAGIAN TUGAS GURU DALAM PROSES BELAJAR MENGAJAR DAN TUGAS TERTENTU",
         jenisSK: selectedSKType,
         tahunAjaran,
         tanggalTetap,
@@ -412,10 +454,7 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
                 id="input-custom-sk-prompt"
                 type="text"
                 value={customPrompt}
-                onChange={(e) => {
-                  setCustomPrompt(e.target.value);
-                  if (e.target.value) setIsCustomMode(true);
-                }}
+                onChange={(e) => handleCustomPromptChange(e.target.value)}
                 placeholder="Ketik kebutuhan SK sekolah Anda di sini..."
                 className="w-full text-xs p-2.5 rounded-lg border border-emerald-300 bg-white focus:ring-2 focus:ring-emerald-500"
               />
@@ -423,8 +462,7 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
                 id="btn-use-custom-prompt"
                 onClick={() => {
                   if (customPrompt.trim()) {
-                    setSelectedSKType("SK Lainnya (Custom AI)");
-                    setIsCustomMode(true);
+                    handleCustomPromptChange(customPrompt);
                     setCurrentStep(2);
                   }
                 }}
@@ -576,6 +614,23 @@ export const SKBuilderWizard: React.FC<SKBuilderWizardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="sm:col-span-2">
+              <label className="block font-semibold text-slate-700 mb-1">
+                Judul Dokumen SK (Dapat Disesuaikan / Diedit) *
+              </label>
+              <input
+                id="input-builder-judul-sk"
+                type="text"
+                value={judulSK}
+                onChange={(e) => setJudulSK(e.target.value)}
+                placeholder="Contoh: PEMBAGIAN TUGAS GURU DALAM PROSES BELAJAR MENGAJAR"
+                className="w-full p-2.5 rounded-lg border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 uppercase"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Judul ini akan dicetak tebal di bagian tengah naskah SK. Anda dapat menyesuaikan atau mengubah redaksinya kapan saja.
+              </span>
+            </div>
+
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Nomor SK *</label>
               <input

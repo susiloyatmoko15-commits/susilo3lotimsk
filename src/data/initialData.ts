@@ -388,10 +388,10 @@ export const skCategories = [
   },
   {
     id: 25,
-    nama: "SK Lainnya (Custom AI)",
-    deskripsi: "Ketik kebutuhan bebas Anda, AI akan otomatis menganalisis dan menyusun draf formal.",
-    defaultJudul: "LAYANAN DAN KEBUTUHAN KHUSUS SATUAN PENDIDIKAN",
-    kategori: "Custom",
+    nama: "SK Khusus / Kustom AI",
+    deskripsi: "Ketik kebutuhan SK sekolah Anda secara bebas, sistem dan AI akan otomatis menyusun dokumen formal sesuai kebutuhan.",
+    defaultJudul: "PENETAPAN TUGAS DAN KEGIATAN SATUAN PENDIDIKAN",
+    kategori: "Kustom",
   },
 ];
 
